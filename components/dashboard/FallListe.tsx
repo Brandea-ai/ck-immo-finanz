@@ -1,6 +1,8 @@
+"use client";
+
 import { Kunde, PHASEN } from "@/types";
 import { StatusDot, StatusBadge } from "./StatusDot";
-import { getBeraterById } from "@/lib/demo-data";
+import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
 interface FallListeProps {
@@ -18,6 +20,7 @@ function formatEuro(value: number): string {
 }
 
 export function FallListe({ faelle, titel, variant = "default" }: FallListeProps) {
+  const { getBeraterById } = useStore();
   if (faelle.length === 0) return null;
 
   return (

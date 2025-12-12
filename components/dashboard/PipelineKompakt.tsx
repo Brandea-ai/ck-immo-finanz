@@ -1,6 +1,8 @@
+"use client";
+
 import { Kunde, PHASEN } from "@/types";
 import { StatusDot } from "./StatusDot";
-import { getBeraterById } from "@/lib/demo-data";
+import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
 interface PipelineKompaktProps {
@@ -16,6 +18,7 @@ function formatEuro(value: number): string {
 }
 
 export function PipelineKompakt({ kunden }: PipelineKompaktProps) {
+  const { getBeraterById } = useStore();
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
       <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
