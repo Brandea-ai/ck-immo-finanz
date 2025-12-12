@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { KPICard } from "@/components/dashboard/KPICard";
@@ -37,6 +37,19 @@ export default function Dashboard() {
 
   const [selectedKunde, setSelectedKunde] = useState<typeof kunden[0] | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [currentDate, setCurrentDate] = useState<string>("");
+
+  // Set date on client only to avoid hydration mismatch
+  useEffect(() => {
+    setCurrentDate(
+      new Date().toLocaleDateString("de-DE", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    );
+  }, []);
 
   const kritischeFaelle = kunden.filter((k) => k.status === "red");
   const warnungsFaelle = kunden.filter((k) => k.status === "yellow");
@@ -65,12 +78,7 @@ export default function Dashboard() {
           <div>
             <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
             <p className="text-sm text-slate-500 mt-0.5">
-              {new Date().toLocaleDateString("de-DE", {
-                weekday: "long",
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-              })}
+              {currentDate || "Lädt..."}
             </p>
           </div>
           <div className="flex items-center gap-4">

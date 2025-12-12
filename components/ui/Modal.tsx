@@ -38,24 +38,24 @@ export function Modal({ isOpen, onClose, children, size = "lg", title }: ModalPr
   return (
     <AnimatePresence>
       {isOpen && (
-        <>
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             onClick={onClose}
           />
 
           {/* Modal */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className={`fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95%] ${sizeClasses[size]} max-h-[90vh] bg-white rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col`}
+            className={`relative w-[95%] ${sizeClasses[size]} max-h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col`}
           >
             {/* Header */}
             {title && (
@@ -77,7 +77,7 @@ export function Modal({ isOpen, onClose, children, size = "lg", title }: ModalPr
               {children}
             </div>
           </motion.div>
-        </>
+        </div>
       )}
     </AnimatePresence>
   );
