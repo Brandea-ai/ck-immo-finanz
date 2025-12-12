@@ -1,57 +1,112 @@
 import { Sidebar } from "@/components/dashboard/Sidebar";
-import { CustomerCard } from "@/components/dashboard/CustomerCard";
-import { demoKunden } from "@/lib/demo-data";
-import { Bell, Search, Plus, Filter } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { StatusDot } from "@/components/dashboard/StatusDot";
+import { kunden, getBeraterById } from "@/lib/demo-data";
+import { PHASEN } from "@/types";
+
+function formatEuro(value: number): string {
+  return new Intl.NumberFormat("de-DE", {
+    style: "currency",
+    currency: "EUR",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
 
 export default function KundenPage() {
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="flex h-screen">
       <Sidebar />
 
       <main className="flex-1 overflow-auto">
         {/* Header */}
-        <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-white px-6">
+        <header className="h-14 px-6 flex items-center justify-between border-b bg-white sticky top-0 z-10">
           <div>
-            <h1 className="text-xl font-semibold">Kunden</h1>
-            <p className="text-sm text-muted-foreground">
-              {demoKunden.length} aktive Kunden
+            <h1 className="font-semibold">Kunden</h1>
+            <p className="text-xs text-muted-foreground">
+              {kunden.length} aktive Fälle
             </p>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Kunde suchen..."
-                className="h-9 w-64 rounded-lg border bg-slate-50 pl-9 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <Button variant="outline">
-              <Filter className="h-4 w-4" />
-              Filter
-            </Button>
-
-            <button className="relative rounded-lg p-2 hover:bg-slate-100">
-              <Bell className="h-5 w-5" />
-              <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />
-            </button>
-
-            <Button>
-              <Plus className="h-4 w-4" />
-              Neuer Kunde
-            </Button>
           </div>
         </header>
 
-        {/* Content */}
+        {/* Table */}
         <div className="p-6">
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-            {demoKunden.map((kunde) => (
-              <CustomerCard key={kunde.id} kunde={kunde} />
-            ))}
+          <div className="bg-white rounded-lg border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/30">
+                  <th className="text-left px-4 py-3 font-medium">Status</th>
+                  <th className="text-left px-4 py-3 font-medium">Name</th>
+                  <th className="text-left px-4 py-3 font-medium">Phase</th>
+                  <th className="text-left px-4 py-3 font-medium">Volumen</th>
+                  <th className="text-left px-4 py-3 font-medium">Objekttyp</th>
+                  <th className="text-left px-4 py-3 font-medium">Berater</th>
+                  <th className="text-left px-4 py-3 font-medium">Tage</th>
+                  <th className="text-left px-4 py-3 font-medium">
+                    Nächste Aktion
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {kunden.map((kunde) => {
+                  const phase = PHASEN.find((p) => p.id === kunde.phase);
+                  const berater = getBeraterById(kunde.beraterId);
+
+                  return (
+                    <tr
+                      key={kunde.id}
+                      className="hover:bg-muted/30 cursor-pointer transition-colors"
+                    >
+                      <td className="px-4 py-3">
+                        <StatusDot status={kunde.status} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="font-medium">{kunde.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {kunde.phone}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="text-xs">
+                          <span className="font-medium">{kunde.phase}.</span>{" "}
+                          {phase?.name}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3 font-medium">
+                        {formatEuro(kunde.finanzierungsvolumen)}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {kunde.objectType}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {berater?.name}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={
+                            kunde.tageInPhase >= 5
+                              ? "text-red-600 font-medium"
+                              : kunde.tageInPhase >= 3
+                              ? "text-amber-600"
+                              : "text-muted-foreground"
+                          }
+                        >
+                          {kunde.tageInPhase}d
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="text-xs text-muted-foreground truncate max-w-[200px]">
+                          {kunde.naechsteAktion}
+                        </p>
+                        {kunde.fehlendeDokumente.length > 0 && (
+                          <p className="text-xs text-red-600">
+                            {kunde.fehlendeDokumente.length} Dok. fehlen
+                          </p>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       </main>
