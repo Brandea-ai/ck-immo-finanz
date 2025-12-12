@@ -1,5 +1,16 @@
 import { create } from "zustand";
 import { Kunde, Berater, KPIs, Status, Activity } from "@/types";
+import {
+  calculateStatus,
+  detectRedFlags,
+  getRecommendedAction,
+  checkPhaseRequirements,
+  getRequiredDocuments,
+  detectStau,
+  calculateDetailedKPIs,
+  StauWarnung,
+  DetailedKPIs,
+} from "./business-logic";
 
 // Demo Team
 const team: Berater[] = [
@@ -350,6 +361,8 @@ interface AppState {
   moveKundeToPhase: (kundeId: string, newPhase: number) => void;
   updateKundeStatus: (kundeId: string, status: Status) => void;
   addActivity: (kundeId: string, activity: Activity) => void;
+  recalculateKundeStatus: (kundeId: string) => void;
+  recalculateAllStatuses: () => void;
 
   // Actions - UI
   setSelectedKunde: (kunde: Kunde | null) => void;
@@ -362,10 +375,19 @@ interface AppState {
 
   // Computed
   getKPIs: () => KPIs;
+  getDetailedKPIs: () => DetailedKPIs;
   getFilteredKunden: () => Kunde[];
   getBeraterById: (id: string) => Berater | undefined;
   getKundenByPhase: (phase: number) => Kunde[];
   getKundenByBerater: (beraterId: string) => Kunde[];
+
+  // Business Logic - Intelligent Functions
+  getKundeRedFlags: (kundeId: string) => ReturnType<typeof detectRedFlags>;
+  getKundeRequiredDocs: (kundeId: string) => string[];
+  getKundePhaseRequirements: (kundeId: string) => ReturnType<typeof checkPhaseRequirements> | null;
+  getKundeRecommendedAction: (kundeId: string) => string;
+  getStauWarnungen: () => StauWarnung[];
+  getKritischeFaelle: () => Kunde[];
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -454,6 +476,43 @@ export const useStore = create<AppState>((set, get) => ({
     )
   })),
 
+  recalculateKundeStatus: (kundeId) => set((state) => {
+    const kunde = state.kunden.find(k => k.id === kundeId);
+    if (!kunde) return state;
+
+    const newStatus = calculateStatus(kunde);
+    const redFlags = detectRedFlags(kunde);
+    const recommendedAction = getRecommendedAction(kunde);
+
+    return {
+      kunden: state.kunden.map((k) =>
+        k.id === kundeId
+          ? {
+              ...k,
+              status: newStatus,
+              redFlags: redFlags.map(f => f.message),
+              naechsteAktion: recommendedAction,
+              updatedAt: new Date().toISOString(),
+            }
+          : k
+      ),
+    };
+  }),
+
+  recalculateAllStatuses: () => set((state) => ({
+    kunden: state.kunden.map((k) => {
+      const newStatus = calculateStatus(k);
+      const redFlags = detectRedFlags(k);
+      const recommendedAction = getRecommendedAction(k);
+      return {
+        ...k,
+        status: newStatus,
+        redFlags: redFlags.map(f => f.message),
+        naechsteAktion: recommendedAction,
+      };
+    }),
+  })),
+
   // UI Actions
   setSelectedKunde: (kunde) => set({ selectedKunde: kunde }),
 
@@ -531,6 +590,43 @@ export const useStore = create<AppState>((set, get) => ({
 
   getKundenByBerater: (beraterId) => {
     return get().kunden.filter((k) => k.beraterId === beraterId);
+  },
+
+  // Business Logic - Intelligent Functions
+  getDetailedKPIs: () => {
+    return calculateDetailedKPIs(get().kunden);
+  },
+
+  getKundeRedFlags: (kundeId) => {
+    const kunde = get().kunden.find(k => k.id === kundeId);
+    if (!kunde) return [];
+    return detectRedFlags(kunde);
+  },
+
+  getKundeRequiredDocs: (kundeId) => {
+    const kunde = get().kunden.find(k => k.id === kundeId);
+    if (!kunde) return [];
+    return getRequiredDocuments(kunde);
+  },
+
+  getKundePhaseRequirements: (kundeId) => {
+    const kunde = get().kunden.find(k => k.id === kundeId);
+    if (!kunde) return null;
+    return checkPhaseRequirements(kunde);
+  },
+
+  getKundeRecommendedAction: (kundeId) => {
+    const kunde = get().kunden.find(k => k.id === kundeId);
+    if (!kunde) return "";
+    return getRecommendedAction(kunde);
+  },
+
+  getStauWarnungen: () => {
+    return detectStau(get().kunden);
+  },
+
+  getKritischeFaelle: () => {
+    return get().kunden.filter(k => calculateStatus(k) === "red");
   },
 }));
 

@@ -20,8 +20,20 @@ function formatEuro(value: number): string {
 }
 
 export default function Dashboard() {
-  const { kunden, getKPIs, getBeraterById, searchQuery, setSearchQuery } = useStore();
+  const {
+    kunden,
+    getKPIs,
+    getDetailedKPIs,
+    getStauWarnungen,
+    getBeraterById,
+    searchQuery,
+    setSearchQuery,
+    recalculateAllStatuses,
+  } = useStore();
+
   const kpis = getKPIs();
+  const detailedKpis = getDetailedKPIs();
+  const stauWarnungen = getStauWarnungen();
 
   const [selectedKunde, setSelectedKunde] = useState<typeof kunden[0] | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -149,8 +161,34 @@ export default function Dashboard() {
           <motion.div variants={itemVariants} className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <KPICard label="Warnungen" value={kpis.warnungen} subtext="Berater prüfen" />
             <KPICard label="Neue Leads" value={kpis.neueLeads} subtext="Erstkontakt" />
-            <KPICard label="Stau-Fälle" value={kpis.stauFaelle} subtext="> 3 Tage keine Aktivität" />
+            <KPICard
+              label="Stau-Fälle"
+              value={stauWarnungen.length}
+              subtext="> erwartete Zeit"
+              variant={stauWarnungen.length > 0 ? "highlight" : "default"}
+            />
             <KPICard label="Durchlaufzeit" value={`${kpis.durchlaufzeit}d`} subtext="Phase 1-3 Ø" />
+          </motion.div>
+
+          {/* Process Quality */}
+          <motion.div variants={itemVariants} className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <KPICard
+              label="Unterlagen komplett"
+              value={`${detailedKpis.unterlagenVollstaendig}%`}
+              subtext="aller aktiven Fälle"
+            />
+            <KPICard
+              label="Red Flag Rate"
+              value={`${detailedKpis.redFlagRate}%`}
+              subtext="Fälle mit Problemen"
+              variant={detailedKpis.redFlagRate > 30 ? "highlight" : "default"}
+            />
+            <KPICard label="OK Fälle" value={detailedKpis.okFaelle} subtext="Läuft planmäßig" />
+            <KPICard
+              label="Team-Auslastung"
+              value={Object.keys(detailedKpis.faelleProBerater).length}
+              subtext="Berater aktiv"
+            />
           </motion.div>
 
           {/* Critical Cases */}
@@ -285,6 +323,52 @@ export default function Dashboard() {
                           </div>
                         </div>
                       </motion.div>
+                    );
+                  })}
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Stau-Warnungen */}
+          {stauWarnungen.length > 0 && (
+            <motion.div variants={itemVariants}>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-1 h-6 bg-orange-500 rounded-full" />
+                <h2 className="text-lg font-semibold text-gray-900">Stau erkannt</h2>
+                <span className="px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 text-xs font-medium">
+                  {stauWarnungen.length}
+                </span>
+              </div>
+              <div className="bg-white rounded-xl border border-orange-200 shadow-sm overflow-hidden">
+                <div className="divide-y divide-gray-100">
+                  {stauWarnungen.slice(0, 5).map((warnung) => {
+                    const kunde = kunden.find((k) => k.id === warnung.kundeId);
+                    const phase = PHASEN.find((p) => p.id === warnung.phase);
+                    return (
+                      <div
+                        key={warnung.kundeId}
+                        onClick={() => kunde && setSelectedKunde(kunde)}
+                        className="p-4 hover:bg-orange-50/50 cursor-pointer transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
+                              <span className="text-orange-700 font-bold text-sm">
+                                {warnung.tageInPhase}d
+                              </span>
+                            </div>
+                            <div>
+                              <p className="font-semibold text-gray-900">{warnung.kundeName}</p>
+                              <p className="text-sm text-slate-500">Phase {warnung.phase}: {phase?.name}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm text-orange-700 font-medium">{warnung.grund}</p>
+                            <p className="text-xs text-slate-500 mt-1">{warnung.empfehlung}</p>
+                          </div>
+                        </div>
+                      </div>
                     );
                   })}
                 </div>

@@ -34,11 +34,27 @@ function formatDate(dateString: string): string {
 
 export function KundeDetailModal({ kunde, isOpen, onClose }: KundeDetailModalProps) {
   const [activeTab, setActiveTab] = useState<TabType>("overview");
-  const { getBeraterById, updateKunde, updateKundeStatus, moveKundeToPhase, addActivity } = useStore();
+  const {
+    getBeraterById,
+    updateKundeStatus,
+    moveKundeToPhase,
+    addActivity,
+    recalculateKundeStatus,
+    getKundeRedFlags,
+    getKundeRequiredDocs,
+    getKundePhaseRequirements,
+    getKundeRecommendedAction,
+  } = useStore();
   const [newNote, setNewNote] = useState("");
 
   const berater = getBeraterById(kunde.beraterId);
   const phase = PHASEN.find((p) => p.id === kunde.phase);
+
+  // Intelligent business logic
+  const redFlags = getKundeRedFlags(kunde.id);
+  const requiredDocs = getKundeRequiredDocs(kunde.id);
+  const phaseRequirements = getKundePhaseRequirements(kunde.id);
+  const recommendedAction = getKundeRecommendedAction(kunde.id);
 
   const handleStatusChange = (status: Status) => {
     updateKundeStatus(kunde.id, status);
@@ -189,21 +205,29 @@ export function KundeDetailModal({ kunde, isOpen, onClose }: KundeDetailModalPro
                 </div>
               </div>
 
-              {/* Red Flags */}
-              {kunde.redFlags.length > 0 && (
+              {/* Red Flags - Intelligent Detection */}
+              {redFlags.length > 0 && (
                 <div className="col-span-2 space-y-4">
                   <h3 className="font-semibold text-red-600 flex items-center gap-2">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
-                    Red Flags
+                    Red Flags ({redFlags.length})
                   </h3>
                   <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                    <ul className="space-y-2">
-                      {kunde.redFlags.map((flag, i) => (
-                        <li key={i} className="flex items-center gap-2 text-sm text-red-700">
-                          <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                          {flag}
+                    <ul className="space-y-3">
+                      {redFlags.map((flag) => (
+                        <li key={flag.id} className="flex items-start gap-3">
+                          <span className={cn(
+                            "px-2 py-0.5 rounded text-xs font-medium shrink-0",
+                            flag.severity === "critical" ? "bg-red-200 text-red-800" : "bg-amber-200 text-amber-800"
+                          )}>
+                            {flag.severity === "critical" ? "Kritisch" : "Warnung"}
+                          </span>
+                          <div>
+                            <p className="text-sm text-red-700">{flag.message}</p>
+                            <p className="text-xs text-red-500 mt-0.5">{flag.category}</p>
+                          </div>
                         </li>
                       ))}
                     </ul>
@@ -211,52 +235,162 @@ export function KundeDetailModal({ kunde, isOpen, onClose }: KundeDetailModalPro
                 </div>
               )}
 
-              {/* Nächste Aktion */}
+              {/* Phase Requirements & Blockers */}
+              {phaseRequirements && (
+                <div className="col-span-2 space-y-4">
+                  <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                    <div className="w-1 h-4 gold-gradient rounded-full" />
+                    Phase {kunde.phase} Status
+                  </h3>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {/* Blockers */}
+                    {phaseRequirements.blockers.length > 0 && (
+                      <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                        <h4 className="text-sm font-semibold text-red-700 mb-2 flex items-center gap-2">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m0 0v2m0-2h2m-2 0H10m5-10a5 5 0 00-10 0v4h10V7z" />
+                          </svg>
+                          Blockierend
+                        </h4>
+                        <ul className="space-y-1">
+                          {phaseRequirements.blockers.map((blocker, i) => (
+                            <li key={i} className="text-sm text-red-700 flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                              {blocker}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {/* Next Actions */}
+                    <div className={cn(
+                      "bg-slate-50 rounded-xl p-4",
+                      phaseRequirements.blockers.length === 0 && "md:col-span-2"
+                    )}>
+                      <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                        Mögliche Aktionen
+                      </h4>
+                      <ul className="space-y-1">
+                        {phaseRequirements.nextActions.map((action, i) => (
+                          <li key={i} className="text-sm text-gray-600 flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                            {action}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Empfohlene Nächste Aktion */}
               <div className="col-span-2 space-y-4">
                 <h3 className="font-semibold text-gray-900 flex items-center gap-2">
                   <div className="w-1 h-4 gold-gradient rounded-full" />
-                  Nächste Aktion
+                  Empfohlene Aktion
                 </h3>
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                  <p className="text-amber-800">{kunde.naechsteAktion}</p>
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+                    <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="font-medium text-amber-800">{recommendedAction || kunde.naechsteAktion}</p>
+                    {phaseRequirements?.canAdvance && (
+                      <p className="text-xs text-amber-600 mt-1">Bereit für nächste Phase</p>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
           )}
 
           {activeTab === "documents" && (
-            <div className="space-y-4">
-              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                <div className="w-1 h-4 gold-gradient rounded-full" />
-                Dokumentenstatus
-              </h3>
-
+            <div className="space-y-6">
+              {/* Fehlende Dokumente */}
               {kunde.fehlendeDokumente.length > 0 && (
-                <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
-                  <h4 className="text-sm font-semibold text-red-700 mb-2">Fehlende Dokumente</h4>
-                  <ul className="space-y-2">
-                    {kunde.fehlendeDokumente.map((doc, i) => (
-                      <li key={i} className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-sm text-red-700">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                          </svg>
-                          {doc}
-                        </div>
-                        <button className="text-xs px-2 py-1 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-colors">
-                          Anfordern
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
+                <div>
+                  <h3 className="font-semibold text-red-600 flex items-center gap-2 mb-3">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    Fehlende Dokumente ({kunde.fehlendeDokumente.length})
+                  </h3>
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                    <ul className="space-y-2">
+                      {kunde.fehlendeDokumente.map((doc, i) => (
+                        <li key={i} className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-sm text-red-700">
+                            <span className="w-2 h-2 rounded-full bg-red-500" />
+                            {doc}
+                          </div>
+                          <button className="text-xs px-2 py-1 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-colors">
+                            Anfordern
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
               )}
 
-              <div className="text-center py-8 text-slate-500">
-                <svg className="w-12 h-12 mx-auto mb-3 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <p>Dokumenten-Upload wird in der vollständigen Version verfügbar sein.</p>
+              {/* Vollständige Unterlagenliste */}
+              <div>
+                <h3 className="font-semibold text-gray-900 flex items-center gap-2 mb-3">
+                  <div className="w-1 h-4 gold-gradient rounded-full" />
+                  Erforderliche Unterlagen ({requiredDocs.length})
+                </h3>
+                <div className="bg-slate-50 rounded-xl p-4">
+                  <div className="grid gap-2">
+                    {requiredDocs.map((doc, i) => {
+                      const isMissing = kunde.fehlendeDokumente.some(
+                        (d) => doc.toLowerCase().includes(d.toLowerCase()) || d.toLowerCase().includes(doc.toLowerCase())
+                      );
+                      return (
+                        <div
+                          key={i}
+                          className={cn(
+                            "flex items-center gap-3 p-2 rounded-lg text-sm",
+                            isMissing ? "bg-red-50 text-red-700" : "text-gray-700"
+                          )}
+                        >
+                          {isMissing ? (
+                            <svg className="w-4 h-4 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          ) : (
+                            <svg className="w-4 h-4 text-emerald-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                          <span>{doc}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Fortschritt */}
+              <div className="bg-slate-50 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-700">Dokumenten-Fortschritt</span>
+                  <span className="text-sm font-semibold text-gray-900">
+                    {requiredDocs.length - kunde.fehlendeDokumente.length} / {requiredDocs.length}
+                  </span>
+                </div>
+                <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div
+                    className="h-full gold-gradient rounded-full transition-all"
+                    style={{
+                      width: `${((requiredDocs.length - kunde.fehlendeDokumente.length) / requiredDocs.length) * 100}%`,
+                    }}
+                  />
+                </div>
               </div>
             </div>
           )}
